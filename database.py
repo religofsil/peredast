@@ -79,19 +79,21 @@ class SimpleDatabase:
         """Get user's preferred language"""
         return self.data['user_languages'].get(str(user_id), 'en')
     
-    def store_message_mapping(self, user_message_id: int, group_message_id: int, user_id: int):
+    def store_message_mapping(self, user_message_id: int, group_message_id: int, user_id: int, source_group_id: int = None, username: str = None):
         """Store mapping between user message and group message"""
         self.data['message_mappings'][str(group_message_id)] = {
             'user_message_id': user_message_id,
-            'user_id': user_id
+            'user_id': user_id,
+            'source_group_id': source_group_id,  # Store source group for group-to-group forwards
+            'username': username  # Store username for mentions
         }
         self._save_data()
     
-    def get_user_from_group_message(self, group_message_id: int) -> Optional[Tuple[int, int]]:
-        """Get user info from group message ID"""
+    def get_user_from_group_message(self, group_message_id: int) -> Optional[Tuple[int, int, int, str]]:
+        """Get user info from group message ID, returns (user_id, user_message_id, source_group_id, username)"""
         mapping = self.data['message_mappings'].get(str(group_message_id))
         if mapping:
-            return mapping['user_id'], mapping['user_message_id']
+            return mapping['user_id'], mapping['user_message_id'], mapping.get('source_group_id'), mapping.get('username')
         return None
     
     def store_autoreply_mapping(self, autoreply_message_id: int, user_id: int, question: str, autoreply: str):

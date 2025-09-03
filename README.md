@@ -7,7 +7,7 @@ A Telegram bot that forwards messages from users to a support group and handles 
 - **Multi-language support**: English, Russian, and Georgian
 - **Message forwarding**: Forwards user messages to a designated support group/topic
 - **Reply handling**: Sends replies from the support group back to the original user
-- **Group mentions**: When the bot is mentioned in a group, it sends the reply back to that group
+- **Group mentions**: When the bot is mentioned in any group, it forwards the message to the configured target group/topic
 - **Media support**: Handles photos, documents, videos, audio, and voice messages
 - **Anonymous replies**: Replies are sent without showing who wrote them
 - **User handle display**: Shows the sender's handle in forwarded messages
@@ -85,7 +85,7 @@ python bot.py
 #### Manual Reply Mode
 
 1. **Direct replies**: Simply reply to any forwarded message in the support group
-2. **Group mentions**: Include `@your_bot_username` in your message to send a reply to the same group
+2. **Group mentions**: Include `@your_bot_username` in your message in any group to forward it to the support team
 
 ### Message Flow
 
