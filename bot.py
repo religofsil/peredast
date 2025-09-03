@@ -237,10 +237,25 @@ async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYP
             # Remove bot mention from message
             reply_text = update.message.text.replace(f"@{context.bot.username}", "").strip()
             
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=reply_text
-            )
+            # Get user info for the mention
+            user = update.effective_user
+            user_handle = user.username or f"{user.first_name} {user.last_name or ''}".strip()
+            
+            # Add username to the reply
+            full_reply = f"@{user_handle}: {reply_text}"
+            
+            # Send to topic if available, otherwise to group
+            if TOPIC_ID:
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=full_reply,
+                    message_thread_id=int(TOPIC_ID)
+                )
+            else:
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=full_reply
+                )
         except Exception as e:
             logger.error(f"Error sending group reply: {e}")
 
@@ -401,37 +416,55 @@ async def handle_group_media_reply(update: Update, context: ContextTypes.DEFAULT
     elif bot_mentioned:
         # Bot was mentioned, send media back to group
         try:
-            caption = update.message.caption.replace(f"@{context.bot.username}", "").strip() if update.message.caption else None
+            # Get user info for the mention
+            user = update.effective_user
+            user_handle = user.username or f"{user.first_name} {user.last_name or ''}".strip()
+            
+            # Remove bot mention and add username to caption
+            if update.message.caption:
+                caption = update.message.caption.replace(f"@{context.bot.username}", "").strip()
+                caption = f"@{user_handle}: {caption}"
+            else:
+                caption = f"@{user_handle}"
+            
+            # Send to topic if available, otherwise to group
+            chat_id = update.effective_chat.id
+            thread_id = int(TOPIC_ID) if TOPIC_ID else None
             
             if update.message.photo:
                 await context.bot.send_photo(
-                    chat_id=update.effective_chat.id,
+                    chat_id=chat_id,
                     photo=update.message.photo[-1].file_id,
-                    caption=caption
+                    caption=caption,
+                    message_thread_id=thread_id
                 )
             elif update.message.document:
                 await context.bot.send_document(
-                    chat_id=update.effective_chat.id,
+                    chat_id=chat_id,
                     document=update.message.document.file_id,
-                    caption=caption
+                    caption=caption,
+                    message_thread_id=thread_id
                 )
             elif update.message.video:
                 await context.bot.send_video(
-                    chat_id=update.effective_chat.id,
+                    chat_id=chat_id,
                     video=update.message.video.file_id,
-                    caption=caption
+                    caption=caption,
+                    message_thread_id=thread_id
                 )
             elif update.message.audio:
                 await context.bot.send_audio(
-                    chat_id=update.effective_chat.id,
+                    chat_id=chat_id,
                     audio=update.message.audio.file_id,
-                    caption=caption
+                    caption=caption,
+                    message_thread_id=thread_id
                 )
             elif update.message.voice:
                 await context.bot.send_voice(
-                    chat_id=update.effective_chat.id,
+                    chat_id=chat_id,
                     voice=update.message.voice.file_id,
-                    caption=caption
+                    caption=caption,
+                    message_thread_id=thread_id
                 )
         except Exception as e:
             logger.error(f"Error sending group media reply: {e}")
@@ -460,7 +493,7 @@ def main():
         handle_private_message
     ))
     application.add_handler(MessageHandler(
-        filters.ChatType.PRIVATE & (filters.PHOTO | filters.DOCUMENT | filters.VIDEO | filters.AUDIO | filters.VOICE),
+        filters.ChatType.PRIVATE & (filters.PHOTO | filters.Document.ALL | filters.VIDEO | filters.AUDIO | filters.VOICE),
         handle_media_message
     ))
     
@@ -470,7 +503,7 @@ def main():
         handle_group_message
     ))
     application.add_handler(MessageHandler(
-        filters.ChatType.GROUPS & (filters.PHOTO | filters.DOCUMENT | filters.VIDEO | filters.AUDIO | filters.VOICE) & filters.REPLY,
+        filters.ChatType.GROUPS & (filters.PHOTO | filters.Document.ALL | filters.VIDEO | filters.AUDIO | filters.VOICE) & filters.REPLY,
         handle_group_media_reply
     ))
     

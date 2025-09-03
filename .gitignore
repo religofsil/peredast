@@ -1,2 +1,6 @@
 env_example.txt
 .env
+conversations.tsv
+config.cpython-39.pyc
+database.cpython-39.pyc
+bot_data.json
