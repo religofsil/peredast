@@ -377,72 +377,87 @@ async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYP
             logger.error(f"Error sending reply from group {group_id}: {e}")
     
     elif bot_mentioned:
-        # Bot was mentioned in a group, forward message to target group instead of sending back to same group
+        # Bot was mentioned in a group, forward message to target group (even with no additional text)
         logger.info(f"Bot was mentioned in group {group_id}, forwarding to target group {GROUP_ID}")
         try:
-            # Remove bot mention from message
-            reply_text = update.message.text.replace(f"@{context.bot.username}", "").strip()
+            # Remove bot mention from message (may be empty after removal)
+            reply_text = update.message.text.replace(f"@{context.bot.username}", "").strip() if update.message.text else ""
             logger.debug(f"Reply text after removing mention: {reply_text} (group {group_id})")
             
-            if reply_text:
-                # Get user info for the mention
-                user = update.effective_user
-                user_handle = user.username or f"{user.first_name} {user.last_name or ''}".strip()
-                logger.debug(f"User handle: {user_handle} (group {group_id})")
-                
-                # Create message with source group info and username
-                source_group_title = update.effective_chat.title or f"Group {group_id}"
-                full_message = f"From group: {source_group_title}\nFrom user: @{user_handle}\n\n{reply_text}"
-                logger.info(f"Forwarding message to target group: {full_message[:100]}...")
-                
-                # Send to target group and topic
-                if TOPIC_ID:
-                    try:
-                        logger.info(f"Attempting to send to topic {TOPIC_ID} in target group {GROUP_ID}")
-                        sent_message = await context.bot.send_message(
-                            chat_id=GROUP_ID,
-                            text=full_message,
-                            message_thread_id=int(TOPIC_ID)
-                        )
-                        logger.info(f"Successfully forwarded to topic {TOPIC_ID} in target group {GROUP_ID}")
-                        
-                        # Store message mapping for replies
-                        logger.debug(f"Storing message mapping for group forward: {update.message.message_id} -> {sent_message.message_id}")
-                        db.store_message_mapping(update.message.message_id, sent_message.message_id, user.id, group_id)
-                        
-                    except Exception as topic_error:
-                        logger.warning(f"Failed to send to topic {TOPIC_ID} in target group {GROUP_ID}: {topic_error}")
-                        logger.info(f"Falling back to sending to target group {GROUP_ID} directly")
-                        sent_message = await context.bot.send_message(
-                            chat_id=GROUP_ID,
-                            text=full_message
-                        )
-                        logger.info(f"Successfully forwarded to target group {GROUP_ID} (fallback)")
-                        
-                        # Store message mapping for replies
-                        logger.debug(f"Storing message mapping for group forward: {update.message.message_id} -> {sent_message.message_id}")
-                        db.store_message_mapping(update.message.message_id, sent_message.message_id, user.id, group_id)
+            # Get user info for the mention
+            user = update.effective_user
+            user_handle = user.username or f"{user.first_name} {user.last_name or ''}".strip()
+            logger.debug(f"User handle: {user_handle} (group {group_id})")
+
+            # Build context from the replied-to message
+            ctx_author_user = update.message.reply_to_message.from_user if update.message.reply_to_message else None
+            ctx_author = (ctx_author_user.username or f"{ctx_author_user.first_name} {ctx_author_user.last_name or ''}".strip()) if ctx_author_user else "unknown"
+            ctx_text = ""
+            if update.message.reply_to_message:
+                if update.message.reply_to_message.text:
+                    ctx_text = update.message.reply_to_message.text
+                elif update.message.reply_to_message.caption:
+                    ctx_text = update.message.reply_to_message.caption
                 else:
-                    logger.info(f"Sending to target group {GROUP_ID}")
+                    ctx_text = "[non-text message]"
+
+            # Create message with source group info, username, optional operator text, and reply context
+            source_group_title = update.effective_chat.title or f"Group {group_id}"
+            full_message_lines = [
+                f"From group: {source_group_title}",
+                f"From user: @{user_handle}",
+            ]
+            if reply_text:
+                full_message_lines += ["", reply_text]
+            full_message_lines += ["", f"Context:\n↪ Replying to @{ctx_author}: {ctx_text}"]
+            full_message = "\n".join(full_message_lines)
+            logger.info(f"Forwarding message to target group: {full_message[:100]}...")
+            
+            # Send to target group and topic
+            if TOPIC_ID:
+                try:
+                    logger.info(f"Attempting to send to topic {TOPIC_ID} in target group {GROUP_ID}")
                     sent_message = await context.bot.send_message(
                         chat_id=GROUP_ID,
-                        text=full_message
+                        text=full_message,
+                        message_thread_id=int(TOPIC_ID)
                     )
-                    logger.info(f"Successfully forwarded to target group {GROUP_ID}")
+                    logger.info(f"Successfully forwarded to topic {TOPIC_ID} in target group {GROUP_ID}")
                     
                     # Store message mapping for replies
                     logger.debug(f"Storing message mapping for group forward: {update.message.message_id} -> {sent_message.message_id}")
                     db.store_message_mapping(update.message.message_id, sent_message.message_id, user.id, group_id)
-                
-                # Confirm to the user in the source group
-                confirmation = f"✅ Your message has been forwarded to the support team."
-                await context.bot.send_message(
-                    chat_id=group_id,
-                    text=confirmation
-                )
-                logger.info(f"Confirmation sent to source group {group_id}")
+                except Exception as topic_error:
+                    logger.warning(f"Failed to send to topic {TOPIC_ID} in target group {GROUP_ID}: {topic_error}")
+                    logger.info(f"Falling back to sending to target group {GROUP_ID} directly")
+                    sent_message = await context.bot.send_message(
+                        chat_id=GROUP_ID,
+                        text=full_message
+                    )
+                    logger.info(f"Successfully forwarded to target group {GROUP_ID} (fallback)")
+                    
+                    # Store message mapping for replies
+                    logger.debug(f"Storing message mapping for group forward: {update.message.message_id} -> {sent_message.message_id}")
+                    db.store_message_mapping(update.message.message_id, sent_message.message_id, user.id, group_id)
             else:
-                logger.debug(f"No text after removing mention, ignoring (group {group_id})")
+                logger.info(f"Sending to target group {GROUP_ID}")
+                sent_message = await context.bot.send_message(
+                    chat_id=GROUP_ID,
+                    text=full_message
+                )
+                logger.info(f"Successfully forwarded to target group {GROUP_ID}")
+                
+                # Store message mapping for replies
+                logger.debug(f"Storing message mapping for group forward: {update.message.message_id} -> {sent_message.message_id}")
+                db.store_message_mapping(update.message.message_id, sent_message.message_id, user.id, group_id)
+            
+            # Confirm to the user in the source group
+            confirmation = f"✅ Your message has been forwarded to the support team."
+            await context.bot.send_message(
+                chat_id=group_id,
+                text=confirmation
+            )
+            logger.info(f"Confirmation sent to source group {group_id}")
         except Exception as e:
             logger.error(f"Error forwarding message from group {group_id} to target group: {e}")
             # Try to send error message to source group
@@ -666,6 +681,20 @@ async def handle_group_media_reply(update: Update, context: ContextTypes.DEFAULT
                 caption = f"From group: {source_group_title}\nFrom user: @{user_handle}"
                 logger.debug(f"No caption, using user handle: {caption} (group {group_id})")
             
+            # Add reply context from the replied-to message
+            ctx_author_user = update.message.reply_to_message.from_user if update.message.reply_to_message else None
+            ctx_author = (ctx_author_user.username or f"{ctx_author_user.first_name} {ctx_author_user.last_name or ''}".strip()) if ctx_author_user else "unknown"
+            ctx_text = ""
+            if update.message.reply_to_message:
+                if update.message.reply_to_message.text:
+                    ctx_text = update.message.reply_to_message.text
+                elif update.message.reply_to_message.caption:
+                    ctx_text = update.message.reply_to_message.caption
+                else:
+                    ctx_text = "[non-text message]"
+
+            caption = f"{caption}\n\nContext:\n↪ Replying to @{ctx_author}: {ctx_text}"
+
             # Send to target group and topic
             logger.info(f"Forwarding media to target group {GROUP_ID}")
             if TOPIC_ID:
