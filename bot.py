@@ -316,7 +316,11 @@ async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYP
     logger.debug(f"User info lookup result: {user_info} (group {group_id})")
     
     if user_info:
-        user_id, user_message_id, source_group_id = user_info
+        if len(user_info) == 4:
+            user_id, user_message_id, source_group_id, username = user_info
+        else:
+            user_id, user_message_id, source_group_id = user_info
+            username = None
         user_language = db.get_user_language(user_id)
         logger.info(f"Found user info: user_id={user_id}, user_language={user_language}, source_group_id={source_group_id} (group {group_id})")
         
@@ -335,8 +339,8 @@ async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYP
                 logger.info(f"Sending reply back to source group {source_group_id} mentioning user {user_id}")
                 
                 # Get user info for mention
-                user_handle = f"@{user_id}"  # We'll need to get the actual username
-                reply_text = f"@{user_handle}: {update.message.text}"
+                mention_handle = f"@{username}" if username else f"{user_id}"
+                reply_text = f"{mention_handle}: {update.message.text}"
                 
                 await context.bot.send_message(
                     chat_id=source_group_id,
@@ -617,7 +621,11 @@ async def handle_group_media_reply(update: Update, context: ContextTypes.DEFAULT
     logger.debug(f"User info lookup result: {user_info} (group {group_id})")
     
     if user_info:
-        user_id, user_message_id, source_group_id = user_info
+        if len(user_info) == 4:
+            user_id, user_message_id, source_group_id, username = user_info
+        else:
+            user_id, user_message_id, source_group_id = user_info
+            username = None
         user_language = db.get_user_language(user_id)
         logger.info(f"Found user info: user_id={user_id}, user_language={user_language}, source_group_id={source_group_id} (group {group_id})")
         
