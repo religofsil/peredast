@@ -3,12 +3,22 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Bot configuration
-BOT_TOKEN = os.getenv('BOT_TOKEN')
-GROUP_ID = os.getenv('GROUP_ID')  # The group where messages will be forwarded
-TOPIC_ID = os.getenv('TOPIC_ID')  # The topic ID in the group (optional)
+ENV = os.getenv('ENV', 'dev').lower()
+
+def _env_pick(dev_key: str, prod_key: str, fallback_key: str):
+    """Pick value based on ENV with a sensible fallback to single-key envs."""
+    if ENV == 'prod':
+        return os.getenv(prod_key) or os.getenv(fallback_key)
+    # default to dev
+    return os.getenv(dev_key) or os.getenv(fallback_key)
+
+# Bot configuration (supports dev/prod separation)
+BOT_TOKEN = _env_pick('BOT_TOKEN_DEV', 'BOT_TOKEN_PROD', 'BOT_TOKEN')
+GROUP_ID = _env_pick('GROUP_ID_DEV', 'GROUP_ID_PROD', 'GROUP_ID')  # The group where messages will be forwarded
+TOPIC_ID = _env_pick('TOPIC_ID_DEV', 'TOPIC_ID_PROD', 'TOPIC_ID')  # The topic ID in the group (optional)
 SEMI_AUTOREPLY_MODE = os.getenv('SEMI_AUTOREPLY_MODE', 'true').lower() == 'true'  # Enable semi-autoreply mode
-TSV_FILE = os.getenv('TSV_FILE', 'conversations.tsv')  # File to store conversations
+
+TSV_FILE = _env_pick('TSV_FILE_DEV', 'TSV_FILE_PROD', 'TSV_FILE')  # File to store conversations
 
 # Language options
 LANGUAGES = {

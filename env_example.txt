@@ -1,0 +1,26 @@
+# Telegram Bot Token (get from @BotFather)
+
+# Runtime environment: dev or prod
+ENV=dev
+
+# Telegram Bot Token (get from @BotFather)
+# Dev
+BOT_TOKEN_DEV=your_dev_bot_token
+# Prod
+BOT_TOKEN_PROD=your_prod_bot_token
+
+# Group ID where messages will be forwarded (must be a negative number)
+# Dev
+GROUP_ID_DEV=-1001111111111
+# Prod
+GROUP_ID_PROD=-1002222222222
+
+# Topic ID in the group (optional, for forum groups)
+# Dev
+TOPIC_ID_DEV=1
+# Prod
+TOPIC_ID_PROD=3
+
+SEMI_AUTOREPLY_MODE=true
+
+TSV_FILE=conversations.tsv
